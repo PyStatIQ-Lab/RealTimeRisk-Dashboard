@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Dashboard Title
 st.title("Portfolio Risk Dashboard")
@@ -21,7 +22,7 @@ def fetch_stock_data(tickers):
         data[ticker] = hist
     return data
 
-# Display Equity Risk
+# Display Equity Risk with Risk Meter
 def display_equity_risk(data):
     st.subheader("Equity Risk (Stock Price Fluctuations)")
     for ticker, hist in data.items():
@@ -33,7 +34,12 @@ def display_equity_risk(data):
         volatility = hist["Daily Returns"].std() * (252 ** 0.5)  # Annualized volatility
         st.write(f"Annualized Volatility for {ticker}: **{volatility:.2%}**")
 
-# Display Liquidity Risk
+        # Calculate risk score based on volatility (higher volatility = higher risk)
+        risk_score = min(int(volatility * 100), 100)
+        st.write(f"**Equity Risk Meter for {ticker}:**")
+        st.progress(risk_score)
+
+# Display Liquidity Risk with Risk Meter
 def display_liquidity_risk(data):
     st.subheader("Liquidity Risk (Trading Volume Analysis)")
     for ticker, hist in data.items():
@@ -42,7 +48,12 @@ def display_liquidity_risk(data):
         st.write(f"Average Volume for {ticker}: **{avg_volume:,.0f}**")
         st.bar_chart(hist["Volume"])
 
-# Display Commodity Risk
+        # Calculate risk score based on volume (lower volume = higher risk)
+        volume_risk_score = min(int(100 - (avg_volume / hist["Volume"].max()) * 100), 100)
+        st.write(f"**Liquidity Risk Meter for {ticker}:**")
+        st.progress(volume_risk_score)
+
+# Display Commodity Risk with Risk Meter
 def display_commodity_risk():
     st.subheader("Commodity Risk (Gold and Crude Oil)")
     gold = yf.Ticker("GC=F").history(period="1y")
@@ -53,7 +64,16 @@ def display_commodity_risk():
     st.write("**Crude Oil (CL=F): Closing Prices (Last Year)**")
     st.line_chart(crude["Close"])
 
-# Display Interest Rate Risk
+    # Calculate volatility for commodities
+    gold_volatility = gold["Close"].pct_change().std() * (252 ** 0.5)
+    crude_volatility = crude["Close"].pct_change().std() * (252 ** 0.5)
+
+    # Calculate risk score based on volatility (higher volatility = higher risk)
+    commodity_risk_score = min(int(max(gold_volatility, crude_volatility) * 100), 100)
+    st.write(f"**Commodity Risk Meter:**")
+    st.progress(commodity_risk_score)
+
+# Display Interest Rate Risk with Risk Meter
 def display_interest_rate_risk():
     st.subheader("Interest Rate Risk")
     rates = {
@@ -74,12 +94,24 @@ def display_interest_rate_risk():
     st.write("Treasury Bill Yields Over Time")
     st.line_chart(rates_df.set_index("Date"))
 
-# Display Currency Risk
+    # Calculate risk score for interest rate risk based on changes in T-Bill rates
+    rate_changes = rates_df.diff().dropna()
+    interest_rate_risk_score = min(int(rate_changes.max().max() * 10), 100)
+    st.write(f"**Interest Rate Risk Meter:**")
+    st.progress(interest_rate_risk_score)
+
+# Display Currency Risk with Risk Meter
 def display_currency_risk():
     st.subheader("Currency Risk (INR/USD Exchange Rate)")
     inr = yf.Ticker("INR=X").history(period="1y")
     st.write("**INR/USD Exchange Rate (Last Year)**")
     st.line_chart(inr["Close"])
+
+    # Calculate risk score based on exchange rate fluctuations (higher fluctuations = higher risk)
+    currency_volatility = inr["Close"].pct_change().std() * (252 ** 0.5)
+    currency_risk_score = min(int(currency_volatility * 100), 100)
+    st.write(f"**Currency Risk Meter:**")
+    st.progress(currency_risk_score)
 
 # Main App Logic
 if stocks:
