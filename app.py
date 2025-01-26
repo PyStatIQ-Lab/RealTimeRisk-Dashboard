@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Fetch stock data for TCS and ITC
 def get_stock_data(stock_symbol):
@@ -85,10 +86,14 @@ def calculate_downside_deviation(stock_data, threshold=0):
     downside_deviation = downside_returns.std() * np.sqrt(252)  # Annualized
     return downside_deviation
 
+# Normalize Risk Metrics
+def normalize_risk_metric(metric, min_value, max_value):
+    return (metric - min_value) / (max_value - min_value)
+
 # Main function for Streamlit Dashboard
 def main():
-    st.title("Portfolio Risk Management Dashboard")
-    
+    st.title("Equity Portfolio Risk Dashboard")
+
     st.sidebar.header("Select Stock Symbols:")
     selected_stocks = st.sidebar.multiselect("Choose Stocks", ['TCS.NS', 'ITC.NS'])
     
@@ -96,51 +101,62 @@ def main():
     nifty = yf.Ticker("^NSEI")
     market_data = nifty.history(period="1y")
     
+    risk_metrics = {}
+    
     if selected_stocks:
         for stock in selected_stocks:
             st.subheader(f"Risk Assessment for {stock}")
             # Fetch stock data
             stock_data = get_stock_data(stock)
             
-            # Market Risk (Volatility)
+            # Calculate individual risk metrics
             volatility = calculate_volatility(stock_data)
-            st.write(f"Market Risk (Volatility): {volatility:.2%}")
-            
-            # Beta
             beta = calculate_beta(stock_data, market_data)
-            st.write(f"Beta: {beta:.2f}")
-            
-            # Value at Risk (VaR)
             var = calculate_var(stock_data)
-            st.write(f"Value at Risk (VaR): {var:.2%}")
-            
-            # Sharpe Ratio
             sharpe_ratio = calculate_sharpe_ratio(stock_data)
-            st.write(f"Sharpe Ratio: {sharpe_ratio:.2f}")
-            
-            # Maximum Drawdown
             max_drawdown = calculate_max_drawdown(stock_data)
-            st.write(f"Maximum Drawdown: {max_drawdown:.2%}")
-            
-            # Sortino Ratio
             sortino_ratio = calculate_sortino_ratio(stock_data)
-            st.write(f"Sortino Ratio: {sortino_ratio:.2f}")
-            
-            # Treynor Ratio
             treynor_ratio = calculate_treynor_ratio(stock_data, beta)
-            st.write(f"Treynor Ratio: {treynor_ratio:.2f}")
-            
-            # R-Squared
             r_squared = calculate_r_squared(stock_data, market_data)
-            st.write(f"R-Squared: {r_squared:.2f}")
-            
-            # Tracking Error
             tracking_error = calculate_tracking_error(stock_data, market_data)
-            st.write(f"Tracking Error: {tracking_error:.2%}")
-            
-            # Downside Deviation
             downside_deviation = calculate_downside_deviation(stock_data)
-            st.write(f"Downside Deviation: {downside_deviation:.2%}")
-    
+            
+            # Store risk metrics in a dictionary
+            risk_metrics[stock] = {
+                'Volatility': volatility,
+                'Beta': beta,
+                'VaR': var,
+                'Sharpe Ratio': sharpe_ratio,
+                'Max Drawdown': max_drawdown,
+                'Sortino Ratio': sortino_ratio,
+                'Treynor Ratio': treynor_ratio,
+                'R-Squared': r_squared,
+                'Tracking Error': tracking_error,
+                'Downside Deviation': downside_deviation
+            }
+            
+            # Visualize the risk metrics
+            risk_df = pd.DataFrame.from_dict(risk_metrics, orient='index')
+            st.write(risk_df)
+
+            # Normalize the risk metrics for visualization
+            normalized_risk = {}
+            for metric in risk_df.columns:
+                min_value = risk_df[metric].min()
+                max_value = risk_df[metric].max()
+                normalized_risk[metric] = [normalize_risk_metric(x, min_value, max_value) for x in risk_df[metric]]
+            
+            normalized_risk_df = pd.DataFrame(normalized_risk, index=risk_df.index)
+            st.write("Normalized Risk Metrics:")
+            st.write(normalized_risk_df)
+            
+            # Plot the risk metrics for the selected stock
+            plt.figure(figsize=(10, 6))
+            normalized_risk_df.plot(kind='bar', stacked=False)
+            plt.title(f"Risk Metrics for {stock}")
+            plt.ylabel('Normalized Risk Value')
+            plt.xlabel('Risk Metric')
+            st.pyplot()
+
 if __name__ == "__main__":
     main()
