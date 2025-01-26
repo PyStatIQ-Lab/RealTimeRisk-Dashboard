@@ -164,8 +164,35 @@ def main():
             # Display individual metrics for the stock
             st.write(pd.DataFrame(risk_metrics[stock], index=[0]))
         
-        # Plot the risk metrics for all selected stocks
-        plot_risk_metrics(risk_metrics, stock_symbols)
+       # Plot interactive bar chart using Plotly
+def plot_risk_metrics(risk_metrics, stock_symbols):
+    fig = go.Figure()
+
+    # Add data for each stock
+    for stock in stock_symbols:
+        # Ensure the data is in list form
+        metrics = list(risk_metrics[stock].keys())  # risk metrics (e.g., Volatility, Beta, etc.)
+        values = list(risk_metrics[stock].values())  # corresponding values for each risk metric
+
+        # Add each stock's risk metrics to the plot
+        fig.add_trace(go.Bar(
+            x=metrics,
+            y=values,
+            name=stock
+        ))
+
+    # Update layout for better visualization
+    fig.update_layout(
+        title="Risk Metrics Comparison",
+        barmode='group',
+        xaxis_title="Risk Metrics",
+        yaxis_title="Risk Value",
+        template="plotly_dark",
+        xaxis_tickangle=-45
+    )
+    
+    st.plotly_chart(fig)
+
 
 if __name__ == "__main__":
     main()
