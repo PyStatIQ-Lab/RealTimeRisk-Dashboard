@@ -2,9 +2,9 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
-# Fetch stock data for TCS and ITC
+# Function to fetch stock data for a selected stock symbol
 def get_stock_data(stock_symbol):
     stock = yf.Ticker(stock_symbol)
     data = stock.history(period="1y")  # Get the last year of stock data
@@ -90,12 +90,38 @@ def calculate_downside_deviation(stock_data, threshold=0):
 def normalize_risk_metric(metric, min_value, max_value):
     return (metric - min_value) / (max_value - min_value)
 
+# Plot interactive bar chart using Plotly
+def plot_risk_metrics(risk_metrics, stock_symbols):
+    fig = go.Figure()
+
+    # Add data for each stock
+    for stock in stock_symbols:
+        fig.add_trace(go.Bar(
+            x=risk_metrics[stock].keys(),
+            y=risk_metrics[stock].values(),
+            name=stock
+        ))
+
+    # Update layout for better visualization
+    fig.update_layout(
+        title="Risk Metrics Comparison",
+        barmode='group',
+        xaxis_title="Risk Metrics",
+        yaxis_title="Risk Value",
+        template="plotly_dark",
+        xaxis_tickangle=-45
+    )
+    
+    st.plotly_chart(fig)
+
 # Main function for Streamlit Dashboard
 def main():
-    st.title("Equity Portfolio Risk Dashboard")
+    st.title("Enhanced Equity Portfolio Risk Dashboard")
 
     st.sidebar.header("Select Stock Symbols:")
-    selected_stocks = st.sidebar.multiselect("Choose Stocks", ['TCS.NS', 'ITC.NS'])
+    selected_stocks = st.sidebar.text_input("Enter Stock Symbols (comma separated)", "TCS.NS,ITC.NS")
+    
+    stock_symbols = [symbol.strip() for symbol in selected_stocks.split(",")]
     
     # Fetch market data (e.g., Nifty 50 Index)
     nifty = yf.Ticker("^NSEI")
@@ -103,8 +129,8 @@ def main():
     
     risk_metrics = {}
     
-    if selected_stocks:
-        for stock in selected_stocks:
+    if stock_symbols:
+        for stock in stock_symbols:
             st.subheader(f"Risk Assessment for {stock}")
             # Fetch stock data
             stock_data = get_stock_data(stock)
@@ -135,28 +161,11 @@ def main():
                 'Downside Deviation': downside_deviation
             }
             
-            # Visualize the risk metrics
-            risk_df = pd.DataFrame.from_dict(risk_metrics, orient='index')
-            st.write(risk_df)
-
-            # Normalize the risk metrics for visualization
-            normalized_risk = {}
-            for metric in risk_df.columns:
-                min_value = risk_df[metric].min()
-                max_value = risk_df[metric].max()
-                normalized_risk[metric] = [normalize_risk_metric(x, min_value, max_value) for x in risk_df[metric]]
-            
-            normalized_risk_df = pd.DataFrame(normalized_risk, index=risk_df.index)
-            st.write("Normalized Risk Metrics:")
-            st.write(normalized_risk_df)
-            
-            # Plot the risk metrics for the selected stock
-            plt.figure(figsize=(10, 6))
-            normalized_risk_df.plot(kind='bar', stacked=False)
-            plt.title(f"Risk Metrics for {stock}")
-            plt.ylabel('Normalized Risk Value')
-            plt.xlabel('Risk Metric')
-            st.pyplot()
+            # Display individual metrics for the stock
+            st.write(pd.DataFrame(risk_metrics[stock], index=[0]))
+        
+        # Plot the risk metrics for all selected stocks
+        plot_risk_metrics(risk_metrics, stock_symbols)
 
 if __name__ == "__main__":
     main()
